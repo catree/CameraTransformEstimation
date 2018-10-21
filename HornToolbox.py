@@ -4,9 +4,12 @@ import sys
 class HornToolbox:
 
     def __init__(self):
+        """
+        Constructor
+        """
         pass
 
-    def apply_camera_transform(self, transformations, reference_points, return_flow=False):
+    def unit_transform(self, transformations, reference_points, return_flow=False):
         """
         compute the 3D flow and positions after transformation.
 
@@ -41,7 +44,7 @@ class HornToolbox:
         else:
             return reference_points + flow
 
-    def apply_sequential_transform(self, transformations, reference_points, iteration=None, return_flow=False):
+    def apply_camera_transform(self, transformations, reference_points, iteration=None, return_flow=False):
         """
         apply sequential transform if the transformation parameters are large.
 
@@ -53,7 +56,7 @@ class HornToolbox:
         :return: rotated normalized points
         """
         if iteration is None:
-            return self.apply_camera_transform(transformations, reference, return_flow)
+            return self.unit_transform(transformations, reference, return_flow)
         
         iteration = np.amin([9, iteration]).astype(int) + 1
 
@@ -63,7 +66,7 @@ class HornToolbox:
         output_points = np.copy(reference_points)
 
         for j in range(iteration):
-            output_points = self.apply_camera_transform(dTransforms, output_points, return_flow)
+            output_points = self.unit_transform(dTransforms, output_points, return_flow)
 
         return output_points
 
