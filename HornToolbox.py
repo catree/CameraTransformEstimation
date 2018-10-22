@@ -1,7 +1,7 @@
 import numpy as np
 import sys
 
-class HornToolbox:
+class HornToolbox(object):
 
     def __init__(self):
         """
@@ -27,14 +27,14 @@ class HornToolbox:
 
         x = reference_points[:,:,0]
         y = reference_points[:,:,1]
-        z = reference_points[:,:,2]
+        Z = reference_points[:,:,2]
 
-        A = transformations[:,0]
-        B = transformations[:,1]
-        C = transformations[:,2]
-        U = transformations[:,3]
-        V = transformations[:,4]
-        W = transformations[:,5]
+        A = transformations[:,0].reshape((-1,1))
+        B = transformations[:,1].reshape((-1,1))
+        C = transformations[:,2].reshape((-1,1))
+        U = transformations[:,3].reshape((-1,1))
+        V = transformations[:,4].reshape((-1,1))
+        W = transformations[:,5].reshape((-1,1))
 
         flow[:, :, 0] = A * (x * y) - B * (x ** 2 + 1) + C * y + Z * (-U + W * x)
         flow[:, :, 1] = A * (y ** 2 + 1) - B * (x * y) - C * x + Z * (-V + W * y)
