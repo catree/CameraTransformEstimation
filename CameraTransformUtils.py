@@ -2,7 +2,7 @@ import numpy as np
 from HornToolbox import HornToolbox
 from skimage.measure import block_reduce
 
-class CRUtils:
+class CTUtils(object):
 
     def __init__(self, H=0, W=0, f_pixels=0, panH=0, panW=0, toolbox='Horn'):
         """
@@ -16,23 +16,25 @@ class CRUtils:
         params: panW: the panorama image size W.
         params: toolbox: the type of toolbox to compute transformations. selected from {'Horn','Euler','Quart'}
         """
-        self.H = H
-        self.W = W
+        self.H = int(H)
+        self.W = int(W)
         self.f_pixels = f_pixels
-        self.panH = panH
-        self.panW = panW
+        self.panH = int(panH)
+        self.panW = int(panW)
         self.inv_dep_map = np.ones((self.panH,self.panW))
         self.sample = 1
-        self.sH = self.panH/self.sample
-        self.sW = self.panW/self.sample
+        self.sH = int(self.panH/self.sample)
+        self.sW = int(self.panW/self.sample)
         
         self.pick_sample(self.sample)
-        if(toolbox=='Horn')
+        if toolbox=='Horn':
             self.toolbox = HornToolbox()
-        else if(toolbox=='Euler')
+        elif toolbox=='Euler':
             self.toolbox = EulerToolbox()
-        else if(toolbox=='Quart')
+        elif toolbox=='Quart':
             self.toolbox = QuartToolbox()
+        else:
+            raise NameError('toolbox not defined')
 
     def pick_sample(self, sample=1):
         """
@@ -42,9 +44,9 @@ class CRUtils:
 
         return: the sampled inverse depth map of the panorama.
         """
-        self.sample = sample
-        self.sH = self.panH/self.sample
-        self.sW = self.panW/self.sample
+        self.sample = int(sample)
+        self.sH = int(self.panH/self.sample)
+        self.sW = int(self.panW/self.sample)
         self.seed_points = np.ones([1, self.sH * self.sW, 3])
         start = int((sample-1)/2)
         x = np.arange(start, self.panW, self.sample)
@@ -64,7 +66,7 @@ class CRUtils:
 
         return: upsampled inverse depth map, [panH, panW]
         """
-        assert inv_dep_map.shape = self.seed_points[0, :, 2].shape, 'wrong input size of inverse depth map in update_inv_dep_map'
+        assert inv_dep_map.shape == self.seed_points[0, :, 2].shape, 'wrong input size of inverse depth map in update_inv_dep_map'
         self.seed_points[0, :, 2] = inv_dep_map.reshape((-1))
         self.inv_dep_map = inv_dep_map.repeat(self.sample, axis = 0).repeat(self.sample, axis = 1)
 
@@ -246,7 +248,7 @@ class CRUtils:
         update the pixel stack by copying pixels from the source image
 
         :param transformations: the transformation parameters, [T,6]
-        :param src_images: the source images, [T, H, W, C]
+        :param src_images: the source images, [T, H/sample, W/sample, C]
         :param iteration: the iteration times for each parameter, defult None means no sequential transformations, [1, 6]
 
         :return: updated stack, [T, sH, sW, C]
@@ -256,12 +258,15 @@ class CRUtils:
         T, _ = transformations.shape
         C = src_images.shape[3]
         assert src_images.shape[0] == T, 'invalid number of input source image'
+        assert transformations.shape[1] == 6, 'invalid transformation shape, should be 6 for each tuple'
 
-        transforms = -np.copy(transformation)
+        transforms = -np.copy(transformations)
         src_points = self.toolbox.apply_camera_transform(transforms, np.repeat(self.seed_points_norm, T, axis=0), iteration)
         src_points = self.denormalize_input(src_points)
-        src = block_reduce(src_images, block_size=(1, self.sample, self.sample, 1), func=np.mean)
+        #src = block_reduce(src_images, block_size=(1, self.sample, self.sample, 1), func=np.mean)
         dst = np.zeros((T, self.sH, self.sW, C))
         dst_images, masks = self.backward_transform(src, dst, src_points, np.repeat(self.seed_points, T, axis=0))
+        dst_images = dst_images.astype(np.int64)
+        masks = masks.astype(np.int64)
 
         return dst_images, masks
