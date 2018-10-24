@@ -5,8 +5,9 @@ import pandas as pd
 import pickle
 from CameraTransformUtils import CTUtils
 from timer import Timer
-from DatasetUtils import *
+from setup import *
 import matplotlib.pyplot as plt
+from skimage.measure import block_reduce
 
 from CoordinateCongealingToolbox import CCToolbox
 from PixelCongealingToolbox import PCToolbox
@@ -94,7 +95,7 @@ class CameraTransformEstimator:
         pixel_stacks = load_images(self.input_directory+ '/images/', self.config, filetype=self.fmt)
 
         CC_stacks = np.zeros((self.T,self.panH,self.panW,self.C))
-        CC_stacks = self.CCT.utils.update_stacks(pixel_stacks, params, CC_stacks)
+        CC_stacks = self.CCT.utils.update_stacks(params, pixel_stacks, 9)
         #average_image = np.mean(CC_stacks, axis=0)
         average_image = self.get_average_image(CC_stacks)
         io.imsave(self.output_directory + '/AfterCC.png', average_image.astype(np.uint8))
@@ -119,17 +120,17 @@ class CameraTransformEstimator:
 
         sample = 5
         level = init_level
-        gray_stacks_5 = block_reduce(self.gray_stacks, block_size=(1, self.sample, self.sample, 1), func=np.mean)
+        gray_stacks_5 = block_reduce(self.gray_stacks, block_size=(1, sample, sample, 1), func=np.mean)
         params, inv_dep_map, history = self.PCT.coordinate_descent(params, gray_stacks_5, self.config, level, sample, self.output_directory)
 
         sample = 3
         level = int(init_level/2.0)
-        gray_stacks_3 = block_reduce(self.gray_stacks, block_size=(1, self.sample, self.sample, 1), func=np.mean)
+        gray_stacks_3 = block_reduce(self.gray_stacks, block_size=(1, sample, sample, 1), func=np.mean)
         params, inv_dep_map, history = self.PCT.coordinate_descent(params, gray_stacks_3, self.config, level, sample, self.output_directory)
 
         sample = 1
         level = int(init_level/4.0)
-        gray_stacks_1 = block_reduce(self.gray_stacks, block_size=(1, self.sample, self.sample, 1), func=np.mean)
+        gray_stacks_1 = block_reduce(self.gray_stacks, block_size=(1, sample, sample, 1), func=np.mean)
         params, inv_dep_map, history = self.PCT.coordinate_descent(params, gray_stacks_1, self.config, level, sample, self.output_directory)
 
         np.save(self.output_directory + '/PC Params.npy', params)
@@ -139,7 +140,7 @@ class CameraTransformEstimator:
         inv_dep_map = self.PCT.utils.update_inv_dep_map(inv_dep_map)
         self.PCT.utils.pick_sample(1)
         PC_stacks = np.zeros((self.T,self.panH,self.panW,self.C))
-        PC_stacks = self.PCT.utils.update_stacks(pixel_stacks, params, PC_stacks)
+        PC_stacks = self.PCT.utils.update_stacks(params, pixel_stacks, 9)
         #average_image = np.mean(pixel_stacks, axis=0)
         average_image = self.get_average_image(PC_stacks)
         io.imsave(self.output_directory + '/AfterPC.png', average_image.astype(np.uint8))
@@ -202,7 +203,7 @@ class CameraTransformEstimator:
             camera_matrix = np.reshape(self.params[i, :], [1, 6])
             src_images[i] = io.imread(fname)
             
-        new_images, masks = self.PCT.utils.update_stacks(self, params, src_images, iteration=10)
+        new_images, masks = self.PCT.utils.update_stacks(params, src_images, iteration=10)
         for i in range(self.T):
             self.image_stacks[i] = new_image
             self.mask_stacks[i] = mask[:,:,np.newaxis]

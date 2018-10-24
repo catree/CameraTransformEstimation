@@ -114,27 +114,27 @@ class PCToolbox:
 
         A_transforms_minus = np.copy(params).reshape([self.T,6])
         A_transforms_minus[:,0] -= dtheta
-        A_images_minus = self.utils.update_stacks(A_transforms_minus, src_images, 9)
+        A_images_minus, _ = self.utils.update_stacks(A_transforms_minus, src_images, 9)
 
         B_transforms_minus = np.copy(params).reshape([self.T,6])
         B_transforms_minus[:,1] -= dtheta
-        B_images_minus = self.utils.update_stacks(B_transforms_minus, src_images, 9)
+        B_images_minus, _ = self.utils.update_stacks(B_transforms_minus, src_images, 9)
 
         C_transforms_minus = np.copy(params).reshape([self.T,6])
         C_transforms_minus[:,2] -= dtheta
-        C_images_minus = self.utils.update_stacks(C_transforms_minus, src_images, 9)
+        C_images_minus, _ = self.utils.update_stacks(C_transforms_minus, src_images, 9)
 
         A_transforms_plus = np.copy(params).reshape([self.T,6])
         A_transforms_plus[:,0] += dtheta
-        A_images_plus = self.utils.update_stacks(A_transforms_plus, src_images, 9)
+        A_images_plus, _ = self.utils.update_stacks(A_transforms_plus, src_images, 9)
 
         B_transforms_plus = np.copy(params).reshape([self.T,6])
         B_transforms_plus[:,1] += dtheta
-        B_images_plus = self.utils.update_stacks(B_transforms_plus, src_images, 9)
+        B_images_plus, _ = self.utils.update_stacks(B_transforms_plus, src_images, 9)
 
         C_transforms_plus = np.copy(params).reshape([self.T,6])
         C_transforms_plus[:,2] += dtheta
-        C_images_plus = self.utils.update_stacks(C_transforms_plus, src_images, 9)
+        C_images_plus, _ = self.utils.update_stacks(C_transforms_plus, src_images, 9)
 
         for i in range(self.T):
             current_image = cur_images[i,...]
@@ -158,8 +158,6 @@ class PCToolbox:
 
             new_image6 = C_transforms_plus[i,...]
             ent6, _ = self.estimator.get_updated_entropy(current_image, new_image6, percentage)
-
-            this_transform[:,2] -= dtheta
 
             choices = [ent3, ent2, ent1, ent0, ent4, ent5, ent6]
 
@@ -191,27 +189,27 @@ class PCToolbox:
 
         U_transforms_minus = np.copy(params).reshape([self.T,6])
         U_transforms_minus[:,0] -= dtrans
-        U_images_minus = self.utils.update_stacks(U_transforms_minus, src_images, 9)
+        U_images_minus, _ = self.utils.update_stacks(U_transforms_minus, src_images, 9)
 
         V_transforms_minus = np.copy(params).reshape([self.T,6])
         V_transforms_minus[:,1] -= dtrans
-        V_images_minus = self.utils.update_stacks(V_transforms_minus, src_images, 9)
+        V_images_minus, _ = self.utils.update_stacks(V_transforms_minus, src_images, 9)
 
         W_transforms_minus = np.copy(params).reshape([self.T,6])
         W_transforms_minus[:,2] -= dtrans
-        W_images_minus = self.utils.update_stacks(W_transforms_minus, src_images, 9)
+        W_images_minus, _ = self.utils.update_stacks(W_transforms_minus, src_images, 9)
 
         U_transforms_plus = np.copy(params).reshape([self.T,6])
         U_transforms_plus[:,0] += dtrans
-        U_images_plus = self.utils.update_stacks(U_transforms_plus, src_images, 9)
+        U_images_plus, _ = self.utils.update_stacks(U_transforms_plus, src_images, 9)
 
         V_transforms_plus = np.copy(params).reshape([self.T,6])
         V_transforms_plus[:,1] += dtrans
-        V_images_plus = self.utils.update_stacks(V_transforms_plus, src_images, 9)
+        V_images_plus, _ = self.utils.update_stacks(V_transforms_plus, src_images, 9)
 
         W_transforms_plus = np.copy(params).reshape([self.T,6])
         W_transforms_plus[:,2] += dtrans
-        W_images_plus = self.utils.update_stacks(W_transforms_plus, src_images, 9)
+        W_images_plus, _ = self.utils.update_stacks(W_transforms_plus, src_images, 9)
 
         for i in range(self.T):
             current_image = cur_images[i,...]
@@ -259,20 +257,20 @@ class PCToolbox:
         inv_dep_map1 = (1.0-dZ) * inv_dep_map
         self.utils.update_inv_dep_map(inv_dep_map1)
         self.utils.pick_sample(sample)
-        cur_images = self.utils.update_stacks(params, src_images, 9)
+        cur_images, _ = self.utils.update_stacks(params, src_images, 9)
         self.estimator.build_histogram(cur_images, (1, 256), n_bins)
         entropy1, lin_entropy1 = self.estimator.compute_entropy()
 
         self.utils.update_inv_dep_map(inv_dep_map)
         self.utils.pick_sample(sample)
-        cur_images = self.utils.update_stacks(params, src_images, 9)
+        cur_images, _ = self.utils.update_stacks(params, src_images, 9)
         self.estimator.build_histogram(cur_images, (1, 256), n_bins)
         entropy0, lin_entropy0 = self.estimator.compute_entropy()
 
         inv_dep_map2 = (1.0+dZ) * inv_dep_map
         self.utils.update_inv_dep_map(inv_dep_map2)
         self.utils.pick_sample(sample)
-        cur_images = self.utils.update_stacks(params, src_images, 9)
+        cur_images, _ = self.utils.update_stacks(params, src_images, 9)
         self.estimator.build_histogram(cur_images, (1, 256), n_bins)
         entropy2, lin_entropy2 = self.estimator.compute_entropy()
 
@@ -287,6 +285,12 @@ class PCToolbox:
 
         return inv_dep_map
 
+    def create_depth_image(self, inv_dep_map):
+        temp = np.copy(inv_dep_map)
+        temp = (temp-np.median(temp))
+        im = 255*(1. / (1 + np.exp(-temp+1)))
+        return im
+
     def coordinate_descent(self, parameters, gray_stacks, config, level, sample=1, output_directory=None):
         assert config['PIXEL CONGEAL']['OPTIM']=='coord', "Wrong function call for optimizer"
 
@@ -300,7 +304,7 @@ class PCToolbox:
         params = np.copy(parameters)
         inv_dep_map = self.utils.pick_sample(sample)
         start = time.time()
-        current_stacks = self.utils.update_stacks(params, gray_stacks, 9)
+        current_stacks, _ = self.utils.update_stacks(params, gray_stacks, 9)
         stop = time.time()
         duration = str(stop-start)
         log.info('%s seconds to update all images'%duration)
@@ -341,7 +345,7 @@ class PCToolbox:
 
             self.utils.update_inv_dep_map(inv_dep_map)
             self.utils.pick_sample(sample)
-            current_stacks = self.utils.update_stacks(params, gray_stacks, iteration)
+            current_stacks, _ = self.utils.update_stacks(params, gray_stacks, 9)
             #current_stacks = self.utils.update_stacks(gray_stacks, params, current_stacks)
 
             self.estimator.build_histogram(current_stacks, (1, 256), n_bins)
@@ -379,6 +383,7 @@ class PCToolbox:
 
             if output_directory is not None:
                 average_image = np.mean(current_stacks, axis=0)
+                io.imsave(output_directory + '/depth_' + str(k) + '.png', color.gray2rgb(self.create_depth_image(inv_dep_map)).astype(np.uint8))
                 io.imsave(output_directory + '/PC_process/PC_' + str(k) + '.png', color.gray2rgb(average_image[:,:,0]).astype(np.uint8))
                 np.savetxt(output_directory + '/PC_Params/params' + str(k) + '.npy', params, delimiter=",")
 

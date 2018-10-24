@@ -66,7 +66,7 @@ class CTUtils(object):
 
         return: upsampled inverse depth map, [panH, panW]
         """
-        assert inv_dep_map.shape == self.seed_points[0, :, 2].shape, 'wrong input size of inverse depth map in update_inv_dep_map'
+        assert np.prod(inv_dep_map.shape) == np.prod(self.seed_points[0, :, 2].shape), 'wrong input size of inverse depth map in update_inv_dep_map'
         self.seed_points[0, :, 2] = inv_dep_map.reshape((-1))
         self.inv_dep_map = inv_dep_map.repeat(self.sample, axis = 0).repeat(self.sample, axis = 1)
 
@@ -264,6 +264,7 @@ class CTUtils(object):
         src_points = self.toolbox.apply_camera_transform(transforms, np.repeat(self.seed_points_norm, T, axis=0), iteration)
         src_points = self.denormalize_input(src_points)
         #src = block_reduce(src_images, block_size=(1, self.sample, self.sample, 1), func=np.mean)
+        src = np.copy(src_images)
         dst = np.zeros((T, self.sH, self.sW, C))
         dst_images, masks = self.backward_transform(src, dst, src_points, np.repeat(self.seed_points, T, axis=0))
         dst_images = dst_images.astype(np.int64)
