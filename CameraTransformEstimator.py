@@ -57,11 +57,11 @@ class CameraTransformEstimator:
         self.check_output_directory()
 
         log.info('Using H = %s, W=%s, C=%s, f_pixels=%s, T= %s'%(H, W, C, f_pixels, T))
-        utils = CTUtils(H, W, f_pixels, self.panH, self.panW, toolbox='Horn')
+        utils = CTUtils(H, W, f_pixels, self.panH, self.panW, toolbox='Appro')
         self.CCT = CCToolbox(H, W, C, T, K, f_pixels, utils)
         self.PCT = PCToolbox(H, W, C, T, f_pixels, self.panH, self.panW, utils)
-        self.image_stacks = np.zeros((T, self.panH, self.panW, C))
-        self.mask_stacks = np.zeros((T, self.panH, self.panW, 1))
+        #self.image_stacks = np.zeros((T, self.panH, self.panW, C))
+        #self.mask_stacks = np.zeros((T, self.panH, self.panW, 1))
 
     def get_average_image(self, pixel_stacks):
         nonzeros = np.count_nonzero(np.sum(pixel_stacks,axis=3),axis=0)
@@ -95,18 +95,18 @@ class CameraTransformEstimator:
         pixel_stacks = load_images(self.input_directory+ '/images/', self.config, filetype=self.fmt)
 
         CC_stacks = np.zeros((self.T,self.panH,self.panW,self.C))
-        CC_stacks = self.CCT.utils.update_stacks(params, pixel_stacks, 9)
+        CC_stacks,_ = self.CCT.utils.update_stacks(params, pixel_stacks, 9)
         #average_image = np.mean(CC_stacks, axis=0)
         average_image = self.get_average_image(CC_stacks)
         io.imsave(self.output_directory + '/AfterCC.png', average_image.astype(np.uint8))
         log.info('Completed coordinate congealing')
-        cc_span = pc_timer.tic()
+        cc_span = pc_timer.toc()
         log.info('Coordinate congealing running time:: ' + str(cc_span) + ' seconds.')
         return params
 
     def perform_pixel_congealing(self):
-        os.makedirs(os.path.join(self.output_directory, '/PC_process'))
-        os.makedirs(os.path.join(self.output_directory, '/PC_Params'))
+        #os.makedirs(os.path.join(self.output_directory, '/PC_process'))
+        #os.makedirs(os.path.join(self.output_directory, '/PC_Params'))
         pc_timer = Timer()
         pc_timer.tic()
         log.info('Started Pixel Congealing.')
@@ -118,36 +118,36 @@ class CameraTransformEstimator:
         inv_dep_map = self.inv_dep_map
         inv_dep_map = self.PCT.utils.update_inv_dep_map(inv_dep_map)
 
-        sample = 5
+        sample = 10
         level = init_level
-        gray_stacks_5 = block_reduce(self.gray_stacks, block_size=(1, sample, sample, 1), func=np.mean)
-        params, inv_dep_map, history = self.PCT.coordinate_descent(params, gray_stacks_5, self.config, level, sample, self.output_directory)
+        gray_stacks_10 = block_reduce(self.gray_stacks, block_size=(1, sample, sample, 1), func=np.mean)
+        params, inv_dep_map, history = self.PCT.coordinate_descent(params, gray_stacks_10, self.config, level, sample, self.output_directory)
 
-        sample = 3
-        level = int(init_level/2.0)
-        gray_stacks_3 = block_reduce(self.gray_stacks, block_size=(1, sample, sample, 1), func=np.mean)
-        params, inv_dep_map, history = self.PCT.coordinate_descent(params, gray_stacks_3, self.config, level, sample, self.output_directory)
+        # sample = 3
+        # level = int(init_level/2.0)
+        # gray_stacks_3 = block_reduce(self.gray_stacks, block_size=(1, sample, sample, 1), func=np.mean)
+        # params, inv_dep_map, history = self.PCT.coordinate_descent(params, gray_stacks_3, self.config, level, sample, self.output_directory)
 
-        sample = 1
-        level = int(init_level/4.0)
-        gray_stacks_1 = block_reduce(self.gray_stacks, block_size=(1, sample, sample, 1), func=np.mean)
-        params, inv_dep_map, history = self.PCT.coordinate_descent(params, gray_stacks_1, self.config, level, sample, self.output_directory)
+        # sample = 1
+        # level = int(init_level/4.0)
+        # gray_stacks_1 = block_reduce(self.gray_stacks, block_size=(1, sample, sample, 1), func=np.mean)
+        # params, inv_dep_map, history = self.PCT.coordinate_descent(params, gray_stacks_1, self.config, level, sample, self.output_directory)
 
         np.save(self.output_directory + '/PC Params.npy', params)
         pixel_stacks = load_images(self.input_directory+ '/images/', self.config, filetype=self.fmt)
 
         self.PCT.utils.pick_sample(1)
         inv_dep_map = self.PCT.utils.update_inv_dep_map(inv_dep_map)
-        self.PCT.utils.pick_sample(1)
+        self.PCT.utils.pick_sample(10)
         PC_stacks = np.zeros((self.T,self.panH,self.panW,self.C))
-        PC_stacks = self.PCT.utils.update_stacks(params, pixel_stacks, 9)
+        PC_stacks,_ = self.PCT.utils.update_stacks(params, pixel_stacks, 9)
         #average_image = np.mean(pixel_stacks, axis=0)
         average_image = self.get_average_image(PC_stacks)
         io.imsave(self.output_directory + '/AfterPC.png', average_image.astype(np.uint8))
 
         with open(self.output_directory + '/history.p', 'wb') as f:
             pickle.dump(history, f)
-        pc_span = pc_timer.tic()
+        pc_span = pc_timer.toc()
         # plt.plot(history)
         # plt.xlabel('Iterations')
         # plt.ylabel('Entropy for Pixel Congealing')
@@ -156,6 +156,9 @@ class CameraTransformEstimator:
         log.info('Pixel congealing running time:: ' + str(pc_span) + ' seconds.')
 
         return params, inv_dep_map
+
+#    def exploding(self, gray_stacks, num_bins):
+
 
     def check_output_directory(self):
         if not os.path.exists(self.output_directory):
@@ -184,8 +187,8 @@ class CameraTransformEstimator:
         return points
 
     def generate_aligned_images(self):
-        os.makedirs(os.path.join(self.output_directory, '/images'))
-        os.makedirs(os.path.join(self.output_directory, '/masks'))
+        #os.makedirs(os.path.join(self.output_directory, '/images'))
+        #os.makedirs(os.path.join(self.output_directory, '/masks'))
         source_images_list = glob.glob(self.input_directory + '/images/*.'+self.fmt)
         source_images_list.sort()
 
@@ -194,28 +197,31 @@ class CameraTransformEstimator:
         assert len(source_images_list)==self.params.shape[0], "Params and images don't match"
 
         log.info('Reading '+str(len(source_images_list))+' images from '+self.input_directory)
-        self.PCT.utils.update_inv_dep_map(self.inv_dep_map)
+        sample = 10
         self.PCT.utils.pick_sample(1)
+        self.PCT.utils.update_inv_dep_map(self.inv_dep_map)
+        self.PCT.utils.pick_sample(sample)
 
-        src_images = np.zeros((self.T, self.panH, self.panW, 3))
+        src_images = np.zeros((self.T, self.H, self.W, 3))
         for i in range(self.T):
             fname = source_images_list[i]
             camera_matrix = np.reshape(self.params[i, :], [1, 6])
             src_images[i] = io.imread(fname)
-            
-        new_images, masks = self.PCT.utils.update_stacks(params, src_images, iteration=10)
+        
+        src_images = block_reduce(src_images, block_size=(1, sample, sample, 1), func=np.mean)
+        new_images, masks = self.PCT.utils.update_stacks(self.params, src_images, iteration=10)
         for i in range(self.T):
-            self.image_stacks[i] = new_image
-            self.mask_stacks[i] = mask[:,:,np.newaxis]
+            #self.image_stacks[i] = new_images[i]
+            #self.mask_stacks[i] = masks[:,:,np.newaxis]
             # io.imsave(self.output_directory + '/images/img_' + str(i).zfill(3) + '.png',
             #           new_image.astype(np.uint8) / 255.0)
             io.imsave(self.output_directory + '/images/img_' + str(i).zfill(3) + '.png',
-                      new_image.astype(np.uint8))
+                      new_images[i].astype(np.uint8))
             io.imsave(self.output_directory + '/masks/img_' + str(i).zfill(3) + '.png',
-                      mask.astype(np.uint8))
+                      masks[i].astype(np.uint8))
 
-        average_image = np.mean(self.image_stacks, axis=0)
+        average_image = np.mean(new_images, axis=0)
         io.imsave(self.output_directory + '/recover.png', average_image.astype(np.uint8))
-        overlap = np.repeat(np.all((self.mask_stacks>0), axis=0), 3, axis=2)
+        overlap = np.repeat(np.all((masks>0), axis=0)[...,np.newaxis], 3, axis=2)
         io.imsave(self.output_directory + '/maskrecover.png', (average_image * overlap).astype(np.uint8))
 

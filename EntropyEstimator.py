@@ -76,6 +76,7 @@ class EntropyEstimator:
             sum_entropy = np.sort(lin_entropy)
             edge = int(sum_entropy.shape[0] * percentage)
             sum_entropy = sum_entropy[:edge]
+            avg_entropy = np.sum(lin_entropy)/np.sum(weights)
 
         return avg_entropy, lin_entropy
 

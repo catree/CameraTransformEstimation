@@ -1,5 +1,7 @@
 import numpy as np
 from HornToolbox import HornToolbox
+from EulerToolbox import EulerToolbox
+from ApproToolbox import ApproToolbox
 from skimage.measure import block_reduce
 
 class CTUtils(object):
@@ -31,8 +33,8 @@ class CTUtils(object):
             self.toolbox = HornToolbox()
         elif toolbox=='Euler':
             self.toolbox = EulerToolbox()
-        elif toolbox=='Quart':
-            self.toolbox = QuartToolbox()
+        elif toolbox=='Appro':
+            self.toolbox = ApproToolbox()
         else:
             raise NameError('toolbox not defined')
 

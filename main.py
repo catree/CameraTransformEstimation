@@ -23,7 +23,7 @@ config_settings = read_config(args.config)
 
 logging.basicConfig(filename=args.log, level=logging.INFO)
 
-prep_dir()
+#prep_dir()
 
 glob_timer = Timer()
 glob_timer.tic()
@@ -37,7 +37,7 @@ np.save(output_dir+'/final_params.npy', final_params)
 np.save(output_dir+'/inv_dep_map.npy', inv_dep_map)
 
 visualizer = Visualize(output_dir=output_dir+'/')
-visualizer.get_heatmap(inv_dep_map, cmap=plt.get_cmap('Blues'), output_dir=output_dir+'/', name = 'inverse_depth_map.png')
+#visualizer.get_heatmap(inv_dep_map, cmap=plt.get_cmap('Blues'), output_dir=output_dir+'/', name = 'inverse_depth_map.png')
 
 if args.movie:
     visualizer.get_movie(indir=output_dir+'/images/', fmt='png', exportname=None, output_dir=output_dir+'/')
@@ -46,4 +46,5 @@ if args.movie:
     logging.info('Generated an mp4 movie.')
 
 glob_span = glob_timer.toc()
-logging.info('Total running time: Completed in ' + str(glob_span)+' seconds.')
+print 'finish in time ' + str(glob_span) + ' seconds'
+logging.info('Total running time: ' + str(glob_span)+' seconds.')
