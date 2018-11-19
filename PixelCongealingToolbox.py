@@ -1,4 +1,5 @@
 from EntropyEstimator import EntropyEstimator
+from ExplodedEntropyEstimator import ExplodedEntropyEstimator
 import time, logging
 from timer import Timer
 from skimage import io, color
@@ -33,7 +34,7 @@ class PCToolbox:
         self.rot_step = (1.0/f_pixels)/(1.0+(W/(2.0*f_pixels)**2))/2.0
         self.trans_step = 1.0/(2.0*f_pixels)
         self.utils = utils
-        self.estimator = EntropyEstimator()
+        self.estimator = ExplodedEntropyEstimator()
 
     def radical(self, gray_stacks):
         """
@@ -99,7 +100,7 @@ class PCToolbox:
 
         return lin_nonzero_mask
     
-    def tweak_ABC_parameters(self, src_images, cur_images, params, dtheta, sequential=False, percentage=None):
+    def tweak_ABC_parameters(self, src_images, cur_images, params, dtheta, n_bins, sequential=False, percentage=None):
         """
         tweak the values of rotation parameters based on minimize entropy
         :param src_images: source images
@@ -116,51 +117,49 @@ class PCToolbox:
 
         A_transforms_minus = np.copy(params).reshape([self.T,6])
         A_transforms_minus[:,0] -= dtheta
-        A_images_minus, _ = self.utils.update_stacks(A_transforms_minus, src_images, 9)
+        A_images_minus,_ = self.utils.update_stacks(np.repeat(A_transforms_minus, n_bins, axis=0), src_images, 9)
 
         B_transforms_minus = np.copy(params).reshape([self.T,6])
         B_transforms_minus[:,1] -= dtheta
-        B_images_minus, _ = self.utils.update_stacks(B_transforms_minus, src_images, 9)
+        B_images_minus,_ = self.utils.update_stacks(np.repeat(B_transforms_minus, n_bins, axis=0), src_images, 9)
 
         C_transforms_minus = np.copy(params).reshape([self.T,6])
         C_transforms_minus[:,2] -= dtheta
-        C_images_minus, _ = self.utils.update_stacks(C_transforms_minus, src_images, 9)
+        C_images_minus,_ = self.utils.update_stacks(np.repeat(C_transforms_minus, n_bins, axis=0), src_images, 9)
 
         A_transforms_plus = np.copy(params).reshape([self.T,6])
         A_transforms_plus[:,0] += dtheta
-        A_images_plus, _ = self.utils.update_stacks(A_transforms_plus, src_images, 9)
+        A_images_plus,_ = self.utils.update_stacks(np.repeat(A_transforms_plus, n_bins, axis=0), src_images, 9)
 
         B_transforms_plus = np.copy(params).reshape([self.T,6])
         B_transforms_plus[:,1] += dtheta
-        B_images_plus, _ = self.utils.update_stacks(B_transforms_plus, src_images, 9)
+        B_images_plus,_ = self.utils.update_stacks(np.repeat(B_transforms_plus, n_bins, axis=0), src_images, 9)
 
         C_transforms_plus = np.copy(params).reshape([self.T,6])
         C_transforms_plus[:,2] += dtheta
-        C_images_plus, _ = self.utils.update_stacks(C_transforms_plus, src_images, 9)
+        C_images_plus,_ = self.utils.update_stacks(np.repeat(C_transforms_plus, n_bins, axis=0), src_images, 9)
 
         for i in range(self.T):
-            current_image = cur_images[i,...]
+            current_image = cur_images[i*n_bins:(i+1)*n_bins,...]
 
-            new_image1 = A_images_minus[i,...]
-            #print('diff')
-            #print(np.sum(np.sum(np.sum(new_image1))) - np.sum(np.sum(np.sum(current_image))))
+            new_image1 = A_images_minus[i*n_bins:(i+1)*n_bins,...]
             ent1, _ = self.estimator.get_updated_entropy(current_image, new_image1, percentage)
 
-            new_image2 = B_images_minus[i,...]
+            new_image2 = B_images_minus[i*n_bins:(i+1)*n_bins,...]
             ent2, _ = self.estimator.get_updated_entropy(current_image, new_image2, percentage)
 
-            new_image3 = C_images_minus[i,...]
+            new_image3 = C_images_minus[i*n_bins:(i+1)*n_bins,...]
             ent3, _ = self.estimator.get_updated_entropy(current_image, new_image3, percentage)
 
             ent0, _ = self.estimator.get_updated_entropy(current_image, current_image, percentage)
 
-            new_image4 = A_images_plus[i,...]
+            new_image4 = A_images_plus[i*n_bins:(i+1)*n_bins,...]
             ent4, _ = self.estimator.get_updated_entropy(current_image, new_image4, percentage)
 
-            new_image5 = B_images_plus[i,...]
+            new_image5 = B_images_plus[i*n_bins:(i+1)*n_bins,...]
             ent5, _ = self.estimator.get_updated_entropy(current_image, new_image5, percentage)
 
-            new_image6 = C_images_plus[i,...]
+            new_image6 = C_images_plus[i*n_bins:(i+1)*n_bins,...]
             ent6, _ = self.estimator.get_updated_entropy(current_image, new_image6, percentage)
 
             choices = [ent3, ent2, ent1, ent0, ent4, ent5, ent6]
@@ -177,7 +176,7 @@ class PCToolbox:
 
         return params
 
-    def tweak_UVW_parameters(self, src_images, cur_images, params, dtrans, sequential=False):
+    def tweak_UVW_parameters(self, src_images, cur_images, params, dtrans, n_bins, sequential=False):
         """
         tweak the values of rotation parameters based on minimize entropy
         :param src_images: source images
@@ -194,52 +193,50 @@ class PCToolbox:
 
         U_transforms_minus = np.copy(params).reshape([self.T,6])
         U_transforms_minus[:,3] -= dtrans
-        U_images_minus, _ = self.utils.update_stacks(U_transforms_minus, src_images, 9)
-        #print('diff')
-        #print(np.sum(np.sum(U_images_minus)) - np.sum(np.sum(params)))
+        U_images_minus,_ = self.utils.update_stacks(np.repeat(U_transforms_minus, n_bins, axis=0), src_images, 9)
 
         V_transforms_minus = np.copy(params).reshape([self.T,6])
         V_transforms_minus[:,4] -= dtrans
-        V_images_minus, _ = self.utils.update_stacks(V_transforms_minus, src_images, 9)
+        V_images_minus,_ = self.utils.update_stacks(np.repeat(V_transforms_minus, n_bins, axis=0), src_images, 9)
 
         W_transforms_minus = np.copy(params).reshape([self.T,6])
         W_transforms_minus[:,5] -= dtrans
-        W_images_minus, _ = self.utils.update_stacks(W_transforms_minus, src_images, 9)
+        W_images_minus,_ = self.utils.update_stacks(np.repeat(W_transforms_minus, n_bins, axis=0), src_images, 9)
 
         U_transforms_plus = np.copy(params).reshape([self.T,6])
         U_transforms_plus[:,3] += dtrans
-        U_images_plus, _ = self.utils.update_stacks(U_transforms_plus, src_images, 9)
+        U_images_plus,_ = self.utils.update_stacks(np.repeat(U_transforms_plus, n_bins, axis=0), src_images, 9)
 
         V_transforms_plus = np.copy(params).reshape([self.T,6])
         V_transforms_plus[:,4] += dtrans
-        V_images_plus, _ = self.utils.update_stacks(V_transforms_plus, src_images, 9)
+        V_images_plus,_ = self.utils.update_stacks(np.repeat(V_transforms_plus, n_bins, axis=0), src_images, 9)
 
         W_transforms_plus = np.copy(params).reshape([self.T,6])
         W_transforms_plus[:,5] += dtrans
-        W_images_plus, _ = self.utils.update_stacks(W_transforms_plus, src_images, 9)
+        W_images_plus,_ = self.utils.update_stacks(np.repeat(W_transforms_plus, n_bins, axis=0), src_images, 9)
 
         for i in range(self.T):
-            current_image = cur_images[i,...]
+            current_image = cur_images[i*n_bins:(i+1)*n_bins,...]
 
-            new_image1 = U_images_minus[i,...]
+            new_image1 = U_images_minus[i*n_bins:(i+1)*n_bins,...]
             ent1, _ = self.estimator.get_updated_entropy(current_image, new_image1)
 
-            new_image2 = V_images_minus[i,...]
+            new_image2 = V_images_minus[i*n_bins:(i+1)*n_bins,...]
             ent2, _ = self.estimator.get_updated_entropy(current_image, new_image2)
 
-            new_image3 = W_images_minus[i,...]
+            new_image3 = W_images_minus[i*n_bins:(i+1)*n_bins,...]
             ent3, _ = self.estimator.get_updated_entropy(current_image, new_image3)
 
             new_image0 = current_image
             ent0, _ = self.estimator.get_updated_entropy(current_image, new_image0)
 
-            new_image4 = U_images_plus[i,...]
+            new_image4 = U_images_plus[i*n_bins:(i+1)*n_bins,...]
             ent4, _ = self.estimator.get_updated_entropy(current_image, new_image4)
 
-            new_image5 = V_images_plus[i,...]
+            new_image5 = V_images_plus[i*n_bins:(i+1)*n_bins,...]
             ent5, _ = self.estimator.get_updated_entropy(current_image, new_image5)
 
-            new_image6 = W_images_plus[i,...]
+            new_image6 = W_images_plus[i*n_bins:(i+1)*n_bins,...]
             ent6, _ = self.estimator.get_updated_entropy(current_image, new_image6)
 
             choices = [ent3, ent2, ent1, ent0, ent4, ent5, ent6]
@@ -261,8 +258,8 @@ class PCToolbox:
         H = cur_images.shape[1]
         W = cur_images.shape[2]
 
-        dZ = 0.2
-        num = 21
+        dZ = 0.04
+        num = 3
         choices = np.zeros((num,H*W))
         changes = np.zeros((num,H,W))
         prod = np.linspace(-0.2, 0.2, num)
@@ -271,10 +268,13 @@ class PCToolbox:
             changes[i] = inv_dep_map_temp
             self.utils.update_inv_dep_map(inv_dep_map_temp)
             self.utils.pick_sample(sample)
-            cur_images, _ = self.utils.update_stacks(params, src_images, 9)
+            cur_images,_ = self.utils.update_stacks(np.repeat(params, n_bins, axis=0), src_images, 9)
             self.estimator.build_histogram(cur_images, (1, 256), n_bins)
             entropy_temp, lin_entropy_temp = self.estimator.compute_entropy()
             choices[i] = lin_entropy_temp
+
+        # print 'choices'
+        # print choices.reshape((num,H,W))[:,H/2-5:H/2+5,W/2-5:W/2+5]
 
         # inv_dep_map1 = (1.0-0.1) * inv_dep_map
         # self.utils.update_inv_dep_map(inv_dep_map1)
@@ -300,21 +300,41 @@ class PCToolbox:
 
         index = np.argmin(choices, axis=0).reshape((H,W))
 
+        # print 'index'
+        # print index[H/2-5:H/2+5,W/2-5:W/2+5]
+
         #changes = np.array([inv_dep_map1, inv_dep_map, inv_dep_map2])
         sharp_map = np.copy(inv_dep_map)
         for i in range(H):
             for j in range(W):
-                sharp_map[i,j] = changes[index[i,j],i,j]-inv_dep_map[i,j]
+                sharp_map[i,j] = changes[index[i,j],i,j]
+ 
+        blurred_map = np.ones((H/36,W/48))
+        for i in range(H/36):
+            for j in range(W/48):
+                blurred_map[i,j] = np.mean(sharp_map[i*36:(i+1)*36,j*48:(j+1)*48])
+        blurred_map = np.repeat(np.repeat(blurred_map,48,axis=1),36,axis=0)
+#        blurred_map = gaussian_filter(sharp_map, sigma=20, truncate=(((51 - 1)/2)-0.5)/50)
 
-        blurred_map = gaussian_filter(sharp_map, sigma=0.25*np.log(1.+level))
-
-        return inv_dep_map*blurred_map
+        return blurred_map
 
     def create_depth_image(self, inv_dep_map):
         temp = np.copy(inv_dep_map)
         temp = (temp-np.median(temp))
         im = 255*(1. / (1 + np.exp(-temp+1)))
         return im
+
+    def exploding(self, gray_stacks, num_bins, s, w):
+        T, H, W, _ = gray_stacks.shape
+        exploded_data = np.zeros((T, num_bins, H, W, 1))
+        filtered_data = np.zeros((T, num_bins, H, W, 1))
+        judge = np.linspace(1.0, 256.0, num=num_bins+1)
+        for i in range(num_bins):
+            exploded_data[:,i,...] = (gray_stacks >= judge[i])*(gray_stacks < judge[i+1])
+            t = (((w - 1)/2)-0.5)/s
+            filtered_data[:,i,...] = gaussian_filter(exploded_data[:,i,...], sigma=s, truncate=t)*255
+
+        return filtered_data
 
     def coordinate_descent(self, parameters, gray_stacks, config, level, sample=1, output_directory=None):
         assert config['PIXEL CONGEAL']['OPTIM']=='coord', "Wrong function call for optimizer"
@@ -325,11 +345,20 @@ class PCToolbox:
         log.info("Params for pixel congealing: N_BINS: %s, N_ITERS: %s, level: %s, pct: %s" %(n_bins, n_iters, level, percentage))
 
         #current_stacks = np.copy(gray_stacks)
-        current_stacks = np.zeros((self.T,self.panH/sample,self.panW/sample,1))
-        params = np.copy(parameters)
+        expl_timer = Timer()
+        expl_timer.tic()
+        exploded = self.exploding(gray_stacks, n_bins, 2, 11)
+        print 'exploding time ' + str(expl_timer.toc()) + ' seconds'
+        for i in range(n_bins):
+            io.imsave(output_directory + '/overfiltered_' + str(i) + '.png', color.gray2rgb(exploded[0,i,:,:,0]).astype(np.uint8))
+        
+        exploded_gray_stacks = exploded.reshape((self.T*n_bins,self.H/sample,self.W/sample,1))
+        current_stacks = np.zeros((self.T*n_bins,self.panH/sample,self.panW/sample,1))
+        #params = np.copy(parameters)
+        params = np.load('../Output/DJIOutput/DJI25/PC_Params/params99.npy')
         inv_dep_map = self.utils.pick_sample(sample)
         start = time.time()
-        current_stacks, _ = self.utils.update_stacks(params, gray_stacks, 9)
+        current_stacks, _ = self.utils.update_stacks(np.repeat(params, n_bins, axis=0), exploded_gray_stacks, 9)
         stop = time.time()
         duration = str(stop-start)
         log.info('%s seconds to update all images'%duration)
@@ -361,15 +390,17 @@ class PCToolbox:
             prev_entropy = np.copy(entropy)
             prev_inv_dep_map = np.copy(inv_dep_map)
 
-            params = self.tweak_ABC_parameters(gray_stacks, current_stacks, params, dtheta)
-            params = self.tweak_UVW_parameters(gray_stacks, current_stacks, params, dtrans)
-            inv_dep_map = self.tweak_inv_depth(gray_stacks, current_stacks, params, inv_dep_map, n_bins, level, sample)
+            params = self.tweak_ABC_parameters(exploded_gray_stacks, current_stacks, params, dtheta*4, n_bins)
+            params = self.tweak_UVW_parameters(exploded_gray_stacks, current_stacks, params, dtrans*4, n_bins)
+            if k==11:
+                exploded = self.exploding(gray_stacks, n_bins, 10, 41)
+            if k>10:
+                inv_dep_map = self.tweak_inv_depth(exploded_gray_stacks, current_stacks, params, inv_dep_map, n_bins, level, sample)
             params = params-np.mean(params, axis=0)
 
             self.utils.update_inv_dep_map(inv_dep_map)
             self.utils.pick_sample(sample)
-            current_stacks, _ = self.utils.update_stacks(params, gray_stacks, 9)
-            #current_stacks = self.utils.update_stacks(gray_stacks, params, current_stacks)
+            current_stacks, _ = self.utils.update_stacks(np.repeat(params, n_bins, axis=0), exploded_gray_stacks, 9)
 
             self.estimator.build_histogram(current_stacks, (1, 256), n_bins)
 
@@ -406,8 +437,12 @@ class PCToolbox:
 
             print str(k) + 'iterations in ' + str(it_sapn) + ' seconds' 
 
+            self.utils.update_inv_dep_map(inv_dep_map)
+            self.utils.pick_sample(sample)
+            img_stacks, _ = self.utils.update_stacks(params, gray_stacks, 9)
+
             if output_directory is not None:
-                average_image = np.mean(current_stacks, axis=0)
+                average_image = np.mean(img_stacks, axis=0)
                 io.imsave(output_directory + '/depth.png', color.gray2rgb(self.create_depth_image(inv_dep_map)).astype(np.uint8))
                 np.save(output_directory + '/depth.npy', inv_dep_map)
                 io.imsave(output_directory + '/PC_process/PC_' + str(k) + '.png', color.gray2rgb(average_image[:,:,0]).astype(np.uint8))

@@ -157,9 +157,6 @@ class CameraTransformEstimator:
 
         return params, inv_dep_map
 
-#    def exploding(self, gray_stacks, num_bins):
-
-
     def check_output_directory(self):
         if not os.path.exists(self.output_directory):
             os.makedirs(self.output_directory)
