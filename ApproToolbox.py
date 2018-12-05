@@ -81,5 +81,6 @@ class ApproToolbox(object):
         output_points = np.copy(reference_points)
 
         output_points = self.unit_transform(dTransforms, output_points, return_flow)
+        output_points = output_points / output_points[:,:,-1][...,np.newaxis]
 
         return output_points
